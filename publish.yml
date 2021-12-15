@@ -1,0 +1,101 @@
+- hosts: localhost 
+  gather_facts: no
+  vars:
+   - session: ''
+   - realm: 'heroes'
+   - endpoint_rhsso: https://sso-cvaldezr-stage.apps.sandbox-m2.ll9k.p1.openshiftapps.com
+     #- endpoint_rhsso: http://192.168.1.100:8080
+     #- endpoint_rhsso: http://138.68.151.157:8080
+
+  tasks:
+    - name: Login
+      register: session
+      login:
+        username: admin
+        password: admin1234
+        endpoint: '{{endpoint_rhsso}}'
+    - debug: var=session
+
+    - name: Creates a realm
+      register: result
+      resource:
+        name: realm
+        id: 'id'
+        token: '{{session.result.token}}'
+        endpoint: '{{endpoint_rhsso}}'
+        payload: files/realms/marvel.json
+        state: present
+
+    - name: Add Marvel Group
+      resource:
+        name: groups
+        id: name
+        realm: '{{realm}}'
+        token: '{{session.result.token}}'
+        endpoint: '{{endpoint_rhsso}}'
+        payload: files/groups/marvel.json
+        state: present
+
+    - name: Add Group
+      resource:
+        name: groups
+        id: name
+        realm: '{{realm}}'
+        token: '{{session.result.token}}'
+        endpoint: '{{endpoint_rhsso}}'
+        payload: files/groups/marvel.json
+        state: present
+
+    - name: Creating Characters from files/users/Marvel
+      resources_from_folder:
+        name: users
+        id: 'username'
+        realm: '{{realm}}'
+        token: '{{session.result.token}}'
+        endpoint: '{{endpoint_rhsso}}'
+        folder: files/users/Marvel/
+        state: present
+
+    - name: Adding client for Marvel
+      resource:
+        name: clients
+        id: clientId
+        realm: '{{realm}}'
+        token: '{{session.result.token}}'
+        endpoint: '{{endpoint_rhsso}}'
+        payload: files/clients/marvel.json
+        state: present
+
+    - name: Marvel Heroes Joining The Group
+      join_group:
+        name: Marvel
+        user_id: 'username'
+        realm: '{{realm}}'
+        token: '{{session.result.token}}'
+        endpoint: '{{endpoint_rhsso}}'
+        folder: files/users/Marvel/
+        state: present
+
+    - name: Creating Roles from files/roles/
+      register: result
+      resources_from_folder:
+        name: roles
+        id: 'name'
+        realm: '{{realm}}'
+        token: '{{session.result.token}}'
+        endpoint: https://sso-cvaldezr-stage.apps.sandbox-m2.ll9k.p1.openshiftapps.com
+        folder: files/roles/
+        state: present
+
+
+    - name: Adding Roles [hero, villain] to Marvel group
+      register: result
+      add_roles_to_group:
+        group: DC
+        roles:
+          - hero
+          - villain
+        realm: '{{realm}}'
+        token: '{{session.result.token}}'
+        endpoint: https://sso-cvaldezr-stage.apps.sandbox-m2.ll9k.p1.openshiftapps.com
+        state: present
